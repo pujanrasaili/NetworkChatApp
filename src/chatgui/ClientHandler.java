@@ -14,6 +14,10 @@ public class ClientHandler implements Runnable {
         this.socket = socket;
     }
 
+    public String getUsername() {
+        return username;
+    }
+
     @Override
     public void run() {
         try {
@@ -21,18 +25,27 @@ public class ClientHandler implements Runnable {
             out = new PrintWriter(socket.getOutputStream(), true);
 
             username = in.readLine();
-            Server.broadcast("🟢 " + username + " joined the chat!", this);
+
+            // Send existing online users to this new client FIRST
+            Server.sendExistingUsers(this);
+
+            // Then announce this user to everyone
+            Server.broadcast("JOIN:" + username, this);
 
             String message;
             while ((message = in.readLine()) != null) {
-                Server.broadcast(username + ": " + message, this);
+                if (message.startsWith("TYPING:")) {
+                    Server.broadcast(message, this);
+                } else {
+                    Server.broadcast(username + ": " + message, this);
+                }
             }
 
         } catch (IOException e) {
             System.out.println(username + " disconnected.");
         } finally {
             Server.removeClient(this);
-            Server.broadcast("🔴 " + username + " left the chat.", this);
+            Server.broadcast("LEAVE:" + username, this);
             try { socket.close(); } catch (IOException ignored) {}
         }
     }
